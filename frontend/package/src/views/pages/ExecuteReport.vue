@@ -25,7 +25,7 @@
 
         <v-text-field
           v-model="reportFormat"
-          label="Report Format (pdf, xls, xlsx, docx, txt)"
+          label="Report Format (pdf, xls, xlsx, docx, txt, html)"
           :rules="[v => !!v || 'Format is required']"
           required
         ></v-text-field>

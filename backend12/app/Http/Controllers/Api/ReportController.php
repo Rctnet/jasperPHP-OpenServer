@@ -129,7 +129,7 @@ class ReportController extends Controller
         $request->validate([
             'report_id' => 'required|exists:reports,id',
             'data_source_id' => 'nullable|exists:data_sources,id',
-            'format' => 'required|string|in:pdf,txt,xls,xlsx,docx',
+            'format' => 'required|string|in:pdf,txt,xls,xlsx,docx,html',
             'parameters' => 'nullable|array',
             'json_data' => 'nullable|array',
             'debug_mode' => 'nullable|boolean'
