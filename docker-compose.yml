@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend12:/var/www/html/backend
-    command: sh -c "chown -R www-data:www-data /var/www/html/backend/storage /var/www/html/backend/bootstrap/cache /var/www/html/backend/database && php artisan route:clear && php artisan config:clear && php-fpm"
+    command: sh -c "chown -R www-data:www-data /var/www/html/backend/storage /var/www/html/backend/vendor /var/www/html/backend/bootstrap/cache /var/www/html/backend/database && php artisan route:clear && php artisan config:clear && php-fpm"
     ports:
       - "9000:9000"
     networks:
@@ -17,6 +17,7 @@ services:
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+
     volumes:
       - ./backend12:/var/www/html/backend
       - ./frontend/package/dist:/var/www/html/frontend
@@ -30,5 +31,3 @@ networks:
   jasperphp-network:
     driver: bridge
 
-volumes:
-  vendor:
