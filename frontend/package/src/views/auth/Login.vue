@@ -1,7 +1,13 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
 import Logo from '@/layouts/full/logo/Logo.vue';
 /* Login form */
 import LoginForm from '@/components/auth/LoginForm.vue';
+import { getCsrfCookie } from '@/services/sanctumApi';
+
+onMounted(() => {
+    getCsrfCookie();
+});
 </script>
 <template>
     <div class="authentication">
