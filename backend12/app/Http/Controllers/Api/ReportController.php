@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Report;
+use App\Models\Report as ReportModel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 use JasperPHP\core\TJasper;
+use JasperPHP\elements\Report;
+use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
@@ -27,8 +29,8 @@ class ReportController extends Controller
             $query->where('description', 'like', '%' . $request->description . '%');
         }
 
-        if ($request->has('file_path')) {
-            $query->where('file_path', 'like', '%' . $request->file_path . '%');
+        if ($request->has('directory_path')) {
+            $query->where('directory_path', 'like', '%' . $request->directory_path . '%');
         }
 
         $reports = $query->with('dataSources')->paginate($request->input('per_page', 10));
@@ -54,13 +56,31 @@ class ReportController extends Controller
             'data_source_id' => 'required|exists:data_sources,id',
         ]);
 
-        $filePath = $request->file('report_file')->store('reports', 'private');
+        // 1. Get original file name
+        $originalFileName = $request->file('report_file')->getClientOriginalName();
+        Log::info("Original File Name: " . $originalFileName);
 
+        // 2. Create report to get an ID (directory_path and main_jrxml_name are nullable now)
         $report = auth()->user()->reports()->create([
             'name' => $request->name,
             'description' => $request->description,
-            'file_path' => $filePath,
+            'data_source_id' => $request->data_source_id, // Ensure data_source_id is also passed
         ]);
+        Log::info("Report created with ID: " . $report->id);
+
+        // 3. Define directory path using the newly created report ID
+        $directoryPath = 'reports/user_' . auth()->id() . '/report_' . $report->id;
+        Log::info("Directory Path: " . $directoryPath);
+
+        // 4. Store the file with its original name
+        $storedPath = $request->file('report_file')->storeAs($directoryPath, $originalFileName, 'private');
+        Log::info("File stored at: " . $storedPath);
+
+        // 5. Update report with path information
+        $report->directory_path = $directoryPath;
+        $report->main_jrxml_name = $originalFileName;
+        $report->save();
+        Log::info("Report updated with directory_path and main_jrxml_name.");
 
         $report->dataSources()->attach($request->data_source_id);
 
@@ -70,7 +90,7 @@ class ReportController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Report $report)
+    public function show(ReportModel $report)
     {
         if ($report->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
@@ -81,7 +101,7 @@ class ReportController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Report $report)
+    public function update(Request $request, ReportModel $report)
     {
         if ($report->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
@@ -95,12 +115,19 @@ class ReportController extends Controller
         ]);
 
         if ($request->hasFile('report_file')) {
-            Storage::disk('private')->delete($report->file_path);
-            $filePath = $request->file('report_file')->store('reports', 'private');
-            $report->file_path = $filePath;
+            // Delete the old main report file
+            Storage::disk('private')->delete($report->directory_path . '/' . $report->main_jrxml_name);
+
+            // Store the new file and update the main_jrxml_name
+            $newFileName = $request->file('report_file')->getClientOriginalName();
+            $request->file('report_file')->storeAs($report->directory_path, $newFileName, 'private');
+            $report->main_jrxml_name = $newFileName;
         }
 
-        $report->update($request->only(['name', 'description']));
+        $report->name = $request->name;
+        $report->description = $request->description;
+        $report->save();
+
         $report->dataSources()->sync($request->data_source_id);
 
         return response()->json($report);
@@ -109,16 +136,42 @@ class ReportController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Report $report)
+    public function destroy(ReportModel $report)
     {
         if ($report->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
         }
 
-        Storage::disk('private')->delete($report->file_path);
+        // Delete the entire report directory
+        Storage::disk('private')->deleteDirectory($report->directory_path);
         $report->delete();
 
         return response()->json(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Store a new subreport for a given report.
+     */
+    public function uploadSubreport(Request $request, ReportModel $report)
+    {
+        if ($report->user_id !== auth()->id()) {
+            return response()->json(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
+        }
+
+        $request->validate([
+            'subreport_file' => 'required|file|mimetypes:application/xml,text/xml,application/octet-stream|max:10240',
+        ]);
+
+        $file = $request->file('subreport_file');
+        $originalFileName = $file->getClientOriginalName();
+
+        // Store the subreport in the same directory as the main report
+        $file->storeAs($report->directory_path, $originalFileName, 'private');
+
+        return response()->json([
+            'message' => 'Subreport uploaded successfully',
+            'file_name' => $originalFileName,
+        ], Response::HTTP_CREATED);
     }
 
     /**
@@ -135,13 +188,15 @@ class ReportController extends Controller
             'debug_mode' => 'nullable|boolean'
         ]);
 
-        $report = Report::find($request->report_id);
+        $report = ReportModel::find($request->report_id);
 
         if ($report->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
         }
 
-        $inputFilePath = Storage::disk('private')->path($report->file_path);
+        $inputFilePath = Storage::disk('private')->path($report->directory_path . '/' . $report->main_jrxml_name);
+        $resourceDirectory = Storage::disk('private')->path($report->directory_path);
+
         $reportFormat = $request->format;
         $reportParameters = $request->parameters ?? [];
         $debugMode = $request->debug_mode ?? false;
@@ -182,7 +237,11 @@ class ReportController extends Controller
             ];
         }
 
-        // try {
+        // Dynamically set the resource folder for subreports
+        $originalDefaultFolder = Report::$defaultFolder;
+        Report::$defaultFolder = $resourceDirectory;
+
+        try {
             $jasper = new TJasper($inputFilePath,$reportParameters, $dataSourceConfig,$debugMode);
             $reportContent = $jasper->output('S');
 
@@ -209,8 +268,11 @@ class ReportController extends Controller
             }
 
             return response($reportContent, 200)->header('Content-Type', $contentType);
-        // } catch (\Exception $e) {
-        //     return response()->json(['message' => 'Report generation failed', 'error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
-        // }
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Report generation failed', 'error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        } finally {
+            // Restore the original default folder
+            Report::$defaultFolder = $originalDefaultFolder;
+        }
     }
 }

@@ -19,7 +19,7 @@
           <v-text-field v-model="filters.description" label="Filter by Description" @update:model-value="debouncedLoadReports"></v-text-field>
         </v-col>
         <v-col cols="12" md="4">
-          <v-text-field v-model="filters.file_path" label="Filter by File Name" @update:model-value="debouncedLoadReports"></v-text-field>
+          <v-text-field v-model="filters.directory_path" label="Filter by Directory" @update:model-value="debouncedLoadReports"></v-text-field>
         </v-col>
       </v-row>
     </v-card-text>
@@ -33,6 +33,7 @@
     >
       <template v-slot:item.actions="{ item }">
         <v-icon small class="mr-2" @click="openForm(item)">mdi-pencil</v-icon>
+        <v-icon small class="mr-2" @click="openSubreportForm(item)">mdi-upload-multiple</v-icon>
         <v-icon small @click="deleteItem(item)">mdi-delete</v-icon>
       </template>
     </v-data-table-server>
@@ -45,17 +46,23 @@
         </v-card-title>
         <v-card-text>
           <v-form ref="form">
-            <v-text-field v-model="editedItem.name" label="Name" :rules="[v => !!v || 'Name is required']"></v-text-field>
-            <v-textarea v-model="editedItem.description" label="Description"></v-textarea>
-            <v-select
-              v-model="editedItem.data_source_id"
-              :items="dataSources"
-              item-title="name"
-              item-value="id"
-              label="Connection (Data Source)"
-              :rules="[v => !!v || 'Connection is required']"
-            ></v-select>
-            <v-file-input v-model="reportFile" label="Report File (.jrxml)" :rules="[v => !!v || isEditing || 'File is required']"></v-file-input>
+            <template v-if="!isSubreportMode">
+              <v-text-field v-model="editedItem.name" label="Name" :rules="[v => !!v || 'Name is required']"></v-text-field>
+              <v-textarea v-model="editedItem.description" label="Description"></v-textarea>
+              <v-select
+                v-model="editedItem.data_source_id"
+                :items="dataSources"
+                item-title="name"
+                item-value="id"
+                label="Connection (Data Source)"
+                :rules="[v => !!v || 'Connection is required']"
+              ></v-select>
+            </template>
+            <v-file-input 
+              v-model="reportFile" 
+              :label="isSubreportMode ? 'Subreport File (.jrxml)' : 'Report File (.jrxml)'" 
+              :rules="[v => !!v || (isEditing && !isSubreportMode) || 'File is required']"
+            ></v-file-input>
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -96,19 +103,20 @@ const reportStore = useReportStore();
 const headers = [
   { title: 'Name', key: 'name' },
   { title: 'Description', key: 'description' },
-  { title: 'File', key: 'file_path' },
+  { title: 'Directory', key: 'directory_path' },
   { title: 'Actions', key: 'actions', sortable: false },
 ];
 
 const filters = reactive({
   name: '',
   description: '',
-  file_path: '',
+  directory_path: '',
 });
 
 const dialog = ref(false);
 const deleteDialog = ref(false);
 const isEditing = ref(false);
+const isSubreportMode = ref(false);
 const editedItem = ref<Partial<Report>>({});
 const itemToDelete = ref<Report | null>(null);
 const reportFile = ref<File | null>(null);
@@ -123,7 +131,10 @@ const dataSources = ref<DataSource[]>([]);
     }
   });
 
-const formTitle = computed(() => (isEditing.value ? 'Edit Report' : 'New Report'));
+const formTitle = computed(() => {
+  if (isSubreportMode.value) return 'Upload Subreport';
+  return isEditing.value ? 'Edit Report' : 'New Report';
+});
 
 const loadReports = async (options: any) => {
   const searchParams = { ...filters };
@@ -138,6 +149,7 @@ const loadReports = async (options: any) => {
 const debouncedLoadReports = debounce(loadReports, 500);
 
 const openForm = (item: Report | null = null) => {
+  isSubreportMode.value = false;
   if (item) {
     isEditing.value = true;
     editedItem.value = { ...item };
@@ -149,8 +161,17 @@ const openForm = (item: Report | null = null) => {
   dialog.value = true;
 };
 
+const openSubreportForm = (item: Report) => {
+  isSubreportMode.value = true;
+  isEditing.value = false; // Not editing the main report
+  editedItem.value = { ...item }; // We just need the ID
+  reportFile.value = null;
+  dialog.value = true;
+};
+
 const closeForm = () => {
   dialog.value = false;
+  isSubreportMode.value = false;
 };
 
 const form = ref<HTMLFormElement | null>(null);
@@ -163,25 +184,25 @@ const save = async () => {
     }
   }
 
-  const formData = new FormData();
-  formData.append('name', editedItem.value.name || '');
-  formData.append('description', editedItem.value.description || '');
-  formData.append('data_source_id', String(editedItem.value.data_source_id || ''));
-  console.log('reportFile.value before append:', reportFile.value);
-  if (reportFile.value) {
-    formData.append('report_file', reportFile.value);
-  }
-
-  // Log FormData contents
-  for (let [key, value] of formData.entries()) {
-    console.log(`${key}:`, value);
-  }
-
   try {
-    if (isEditing.value) {
-      await reportService.updateReport(editedItem.value.id!, formData);
+    if (isSubreportMode.value) {
+      if (reportFile.value && editedItem.value.id) {
+        await reportService.uploadSubreport(editedItem.value.id, reportFile.value);
+      }
     } else {
-      await reportService.createReport(formData);
+      const formData = new FormData();
+      formData.append('name', editedItem.value.name || '');
+      formData.append('description', editedItem.value.description || '');
+      formData.append('data_source_id', String(editedItem.value.data_source_id || ''));
+      if (reportFile.value) {
+        formData.append('report_file', reportFile.value);
+      }
+
+      if (isEditing.value) {
+        await reportService.updateReport(editedItem.value.id!, formData);
+      } else {
+        await reportService.createReport(formData);
+      }
     }
     closeForm();
     loadReports({}); // Refresh the table

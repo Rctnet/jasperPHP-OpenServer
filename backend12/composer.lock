@@ -3148,22 +3148,17 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/QuilhaSoft/JasperPHP.git",
-                "reference": "ab59e7d5dfb381048d6a3663e910fb0bdde40278"
+                "reference": "8c6630605616eb8cedde3a53cada0fe8605e7ce3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/QuilhaSoft/JasperPHP/zipball/ab59e7d5dfb381048d6a3663e910fb0bdde40278",
-                "reference": "ab59e7d5dfb381048d6a3663e910fb0bdde40278",
+                "url": "https://api.github.com/repos/QuilhaSoft/JasperPHP/zipball/8c6630605616eb8cedde3a53cada0fe8605e7ce3",
+                "reference": "8c6630605616eb8cedde3a53cada0fe8605e7ce3",
                 "shasum": ""
             },
             "require": {
                 "php": "^7.4 || ^8.0",
                 "tecnickcom/tcpdf": "^6.3.5"
-            },
-            "require-dev": {
-                "friendsofphp/php-cs-fixer": "^3.13",
-                "phpstan/phpstan": "^1.10",
-                "phpunit/phpunit": "^9.5"
             },
             "type": "library",
             "autoload": {
@@ -3197,7 +3192,7 @@
                 "issues": "https://github.com/QuilhaSoft/JasperPHP/issues",
                 "source": "https://github.com/QuilhaSoft/JasperPHP/tree/night"
             },
-            "time": "2025-08-19T23:51:39+00:00"
+            "time": "2025-09-12T00:19:02+00:00"
         },
         {
             "name": "ralouphie/getallheaders",
@@ -7312,16 +7307,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "11.5.36",
+            "version": "11.5.38",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "264a87c7ef68b1ab9af7172357740dc266df5957"
+                "reference": "5bd0e4f64a2261b7ade7054c51547beaf2d99e43"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/264a87c7ef68b1ab9af7172357740dc266df5957",
-                "reference": "264a87c7ef68b1ab9af7172357740dc266df5957",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/5bd0e4f64a2261b7ade7054c51547beaf2d99e43",
+                "reference": "5bd0e4f64a2261b7ade7054c51547beaf2d99e43",
                 "shasum": ""
             },
             "require": {
@@ -7393,7 +7388,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/phpunit/issues",
                 "security": "https://github.com/sebastianbergmann/phpunit/security/policy",
-                "source": "https://github.com/sebastianbergmann/phpunit/tree/11.5.36"
+                "source": "https://github.com/sebastianbergmann/phpunit/tree/11.5.38"
             },
             "funding": [
                 {
@@ -7417,7 +7412,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-09-03T06:24:17+00:00"
+            "time": "2025-09-11T10:34:07+00:00"
         },
         {
             "name": "sebastian/cli-parser",

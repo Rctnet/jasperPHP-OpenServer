@@ -27,5 +27,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('datasources', DataSourceController::class);
     Route::apiResource('reports', ReportController::class);
     Route::post('reports/execute', [ReportController::class, 'execute']);
+    Route::post('reports/{report}/subreports', [ReportController::class, 'uploadSubreport'])->name('reports.subreports.store');
     Route::put('/user/profile-information', [AuthController::class, 'updateProfileInformation']);
 });

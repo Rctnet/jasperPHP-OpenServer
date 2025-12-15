@@ -13,7 +13,8 @@ class Report extends Model
         'user_id',
         'name',
         'description',
-        'file_path',
+        'directory_path',
+        'main_jrxml_name',
     ];
 
     public function user()

@@ -31,3 +31,14 @@ export const executeReport = (data: any) => {
     responseType: 'blob', // Important for handling file downloads
   });
 };
+
+export const uploadSubreport = (reportId: number, subreportFile: File) => {
+  const formData = new FormData();
+  formData.append('subreport_file', subreportFile);
+
+  return api.post(`/reports/${reportId}/subreports`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
