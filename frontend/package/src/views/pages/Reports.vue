@@ -48,6 +48,7 @@
           <v-form ref="form">
             <template v-if="!isSubreportMode">
               <v-text-field v-model="editedItem.name" label="Name" :rules="[v => !!v || 'Name is required']"></v-text-field>
+              <v-text-field v-model="editedItem.slug" label="Slug (Optional)"></v-text-field>
               <v-textarea v-model="editedItem.description" label="Description"></v-textarea>
               <v-select
                 v-model="editedItem.data_source_id"
@@ -102,6 +103,7 @@ const reportStore = useReportStore();
 
 const headers = [
   { title: 'Name', key: 'name' },
+  { title: 'Slug', key: 'slug' },
   { title: 'Description', key: 'description' },
   { title: 'Directory', key: 'directory_path' },
   { title: 'Actions', key: 'actions', sortable: false },
@@ -192,6 +194,7 @@ const save = async () => {
     } else {
       const formData = new FormData();
       formData.append('name', editedItem.value.name || '');
+      formData.append('slug', editedItem.value.slug || '');
       formData.append('description', editedItem.value.description || '');
       formData.append('data_source_id', String(editedItem.value.data_source_id || ''));
       if (reportFile.value) {

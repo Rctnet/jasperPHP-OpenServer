@@ -51,6 +51,7 @@ class ReportController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|unique:reports,slug',
             'description' => 'nullable|string',
             'report_file' => 'required|file|mimetypes:application/xml,text/xml,application/octet-stream|max:10240',
             'data_source_id' => 'required|exists:data_sources,id',
@@ -61,8 +62,15 @@ class ReportController extends Controller
         Log::info("Original File Name: " . $originalFileName);
 
         // 2. Create report to get an ID (directory_path and main_jrxml_name are nullable now)
+        $slug = $request->slug ?? \Illuminate\Support\Str::slug($request->name);
+        // Ensure slug is unique if generated
+        if (!$request->slug && ReportModel::where('slug', $slug)->exists()) {
+             $slug .= '-' . uniqid();
+        }
+
         $report = auth()->user()->reports()->create([
             'name' => $request->name,
+            'slug' => $slug,
             'description' => $request->description,
             'data_source_id' => $request->data_source_id, // Ensure data_source_id is also passed
         ]);
@@ -109,6 +117,7 @@ class ReportController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
+            'slug' => 'nullable|string|max:255|unique:reports,slug,' . $report->id,
             'description' => 'nullable|string',
             'report_file' => 'nullable|file|mimetypes:application/xml,text/xml,application/octet-stream|max:10240',
             'data_source_id' => 'required|exists:data_sources,id',
@@ -125,6 +134,9 @@ class ReportController extends Controller
         }
 
         $report->name = $request->name;
+        if ($request->has('slug') && $request->slug) {
+             $report->slug = $request->slug;
+        }
         $report->description = $request->description;
         $report->save();
 
@@ -180,7 +192,9 @@ class ReportController extends Controller
     public function execute(Request $request)
     {
         $request->validate([
-            'report_id' => 'required|exists:reports,id',
+            'report_slug' => 'required_without:report_id|string|exists:reports,slug',
+            'report_id' => 'required_without:report_slug|exists:reports,id',
+            'data_source_slug' => 'nullable|string|exists:data_sources,slug',
             'data_source_id' => 'nullable|exists:data_sources,id',
             'format' => 'required|string|in:pdf,txt,xls,xlsx,docx,html',
             'parameters' => 'nullable|array',
@@ -188,7 +202,11 @@ class ReportController extends Controller
             'debug_mode' => 'nullable|boolean'
         ]);
 
-        $report = ReportModel::find($request->report_id);
+        if ($request->has('report_slug')) {
+            $report = ReportModel::where('slug', $request->report_slug)->firstOrFail();
+        } else {
+            $report = ReportModel::find($request->report_id);
+        }
 
         if ($report->user_id !== auth()->id()) {
             return response()->json(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
@@ -207,8 +225,13 @@ class ReportController extends Controller
             'data' => [], // Default to empty array data source
         ];
 
-        if ($request->data_source_id) {
+        if ($request->data_source_slug) {
+             $dataSource = \App\Models\DataSource::where('slug', $request->data_source_slug)->first();
+        } elseif ($request->data_source_id) {
             $dataSource = \App\Models\DataSource::find($request->data_source_id);
+        }
+
+        if (isset($dataSource)) {
             if (!$dataSource || $dataSource->user_id !== auth()->id()) {
                 return response()->json(['message' => 'Data Source Unauthorized or Not Found'], Response::HTTP_FORBIDDEN);
             }

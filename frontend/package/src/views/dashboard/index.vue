@@ -62,22 +62,21 @@ class JasperApiService
     public function __construct()
     {
         $this->client = new Client([
-            'base_uri' => env('JASPER_API_URL', 'http://localhost:8080/jasperserver/rest_v2/'),
-            'auth' => [env('JASPER_USERNAME', 'jasperadmin'), env('JASPER_PASSWORD', 'jasperadmin')],
+            'base_uri' => 'http://your-jasperphp-server.com/api/',
             'headers' => [
                 'Accept' => 'application/json',
+                // 'Authorization' => 'Bearer YOUR_API_TOKEN',
             ],
         ]);
     }
 
-    public function generateReport(string $reportPath, string $format, array $parameters = [])
+    public function generateReport(string $slug, string $format, array $parameters = [])
     {
         try {
-            $response = $this->client->post("reports" . $reportPath, [
-                'query' => [
-                    'format' => $format,
-                ],
+            $response = $this->client->post("reports/execute", [
                 'json' => [
+                    'report_slug' => $slug,
+                    'format' => $format,
                     'parameters' => $parameters,
                 ],
             ]);
@@ -125,22 +124,21 @@ class ReportController extends Controller
     public function generateReportWithDirectGuzzle(Request $request)
     {
         $client = new Client([
-            'base_uri' => env('JASPER_API_URL', 'http://localhost:8080/jasperserver/rest_v2/'),
-            'auth' => [env('JASPER_USERNAME', 'jasperadmin'), env('JASPER_PASSWORD', 'jasperadmin')],
+            'base_uri' => 'http://your-jasperphp-server.com/api/',
             'headers' => [
                 'Accept' => 'application/json',
+                'Authorization' => 'Bearer YOUR_API_TOKEN',
             ],
         ]);
 
         try {
-            $response = $client->post("reports/samples/Customers", [
-                'query' => [
-                    'format' => 'pdf',
-                ],
+            $response = $client->post("reports/execute", [
                 'json' => [
+                    'report_slug' => 'my-report-slug',
+                    'format' => 'pdf',
                     'parameters' => [
-                        'CustomerID' => $request->input('customer_id'),
-                    ],
+                         'customer_id' => $request->input('customer_id'),
+                    ]
                 ],
             ]);
 
@@ -175,10 +173,10 @@ class ReportController extends Controller
 
     public function generateSimpleReport()
     {
-        $reportPath = '/reports/samples/Employees';
+        $reportSlug = 'employees';
         $format = 'pdf';
 
-        $reportContent = $this->jasperApiService->generateReport($reportPath, $format);
+        $reportContent = $this->jasperApiService->generateReport($reportSlug, $format);
 
         return response($reportContent)
             ->header('Content-Type', 'application/pdf')
@@ -205,7 +203,7 @@ class ReportController extends Controller
 
     public function generateReportWithParams(Request $request)
     {
-        $reportPath = '/reports/samples/Customers';
+        $reportSlug = 'customers';
         $format = 'pdf';
         $parameters = [
             'CustomerID' => $request->input('customer_id'),
@@ -213,7 +211,7 @@ class ReportController extends Controller
             'EndDate' => '2023-12-31',
         ];
 
-        $reportContent = $this->jasperApiService->generateReport($reportPath, $format, $parameters);
+        $reportContent = $this->jasperApiService->generateReport($reportSlug, $format, $parameters);
 
         return response($reportContent)
             ->header('Content-Type', 'application/pdf')
@@ -241,12 +239,12 @@ class ReportController extends Controller
 
     public function generateReportWithErrorHandling(Request $request)
     {
-        $reportPath = '/reports/samples/NonExistentReport'; // Example of a non-existent report
+        $reportSlug = 'non-existent-report'; // Example of a non-existent report
         $format = 'pdf';
         $parameters = [];
 
         try {
-            $reportContent = $this->jasperApiService->generateReport($reportPath, $format, $parameters);
+            $reportContent = $this->jasperApiService->generateReport($reportSlug, $format, $parameters);
 
             // Check if the content is an error message from the service
             if (is_string($reportContent) && (str_contains($reportContent, 'error') || str_contains($reportContent, 'Error') || str_contains($reportContent, 'faultCode'))) {
@@ -304,12 +302,12 @@ class FullReportController extends Controller
      */
     public function generate(Request $request)
     {
-        $reportPath = $request->input('report_path', '/reports/samples/Employees');
+        $reportSlug = $request->input('report_slug', 'employees');
         $format = $request->input('format', 'pdf');
         $parameters = $request->input('parameters', []);
 
         try {
-            $reportContent = $this->jasperApiService->generateReport($reportPath, $format, $parameters);
+            $reportContent = $this->jasperApiService->generateReport($reportSlug, $format, $parameters);
 
             // Basic check if the returned content is likely an error message from Jasper
             if (is_string($reportContent) && (str_contains($reportContent, 'error') || str_contains($reportContent, 'Error') || str_contains($reportContent, 'faultCode'))) {

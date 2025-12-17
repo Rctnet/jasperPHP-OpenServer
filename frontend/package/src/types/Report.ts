@@ -1,6 +1,7 @@
 export interface Report {
   id: number;
   name: string;
+  slug?: string;
   description: string;
   directory_path: string;
   main_jrxml_name: string;
