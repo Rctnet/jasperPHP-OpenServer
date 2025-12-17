@@ -12,9 +12,15 @@ class DataSource extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'slug',
         'type',
         'configuration',
     ];
+
+    public function getRouteKeyName()
+    {
+        return 'slug';
+    }
 
     protected $casts = [
         'configuration' => 'array',
