@@ -17,6 +17,7 @@ RUN apk add --no-cache \
     curl \
     nodejs \
     npm \
+    && npm install -g chokidar@^3.5.3 \
     && docker-php-ext-install \
     pdo_sqlite \
     pdo_mysql \
@@ -24,32 +25,36 @@ RUN apk add --no-cache \
     gd \
     zip \
     intl \
+    pcntl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd
+    && docker-php-ext-install -j$(nproc) gd \
+    && apk add --no-cache libstdc++ \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+    && pecl install swoole \
+    && docker-php-ext-enable swoole \
+    && apk del .build-deps
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Set working directory
-WORKDIR /var/www/html
-
-# Clean up previous vendor and composer.lock
-RUN rm -rf vendor composer.lock
+WORKDIR /var/www/html/backend
 
 # Copy application files
 COPY . .
 
-# Install Composer dependencies
-RUN composer install --no-scripts --optimize-autoloader
+# Install Node dependencies and Composer dependencies
+RUN npm install \
+    && composer install --no-scripts --optimize-autoloader
 
 # Set permissions for Laravel storage and bootstrap/cache
 RUN chown -R www-data:www-data storage bootstrap/cache database \
     && chmod -R 775 storage bootstrap/cache \
     && chmod -R 775 database
 
-# Expose port 9000 for PHP-FPM
-EXPOSE 9000
+# Expose port 8000 for Octane
+EXPOSE 8000
 
-# Start PHP-FPM
-CMD ["php-fpm"]
+# Start Octane
+CMD ["php", "artisan", "octane:start", "--server=swoole", "--host=0.0.0.0", "--port=8000", "--watch"]
 
